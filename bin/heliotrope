@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'heliotrope'))
+require 'trollop'
+
+o = Trollop.options do
+  opt :host, 'Address to listen on', :default => '127.0.0.1'
+  opt :port, 'Port to listen on', :default => 55956
+end
+
+s = Heliotrope.new(
+  host: o[:host],
+  port: o[:port]
+)
+
+# IRB monkeypatch to let us load a custom context object
+class IRB::Irb
+  alias initialize_orig initialize
+  def initialize(workspace = nil, *args)
+    default = IRB.conf[:DEFAULT_OBJECT]
+    workspace ||= IRB::WorkSpace.new default if default
+    initialize_orig(workspace, *args)
+  end
+end
+
+# Load session
+begin
+  IRB.conf[:DEFAULT_OBJECT] = Heliotrope
+rescue => e
+  p e
+  exit
+end
+
+IRB.start
