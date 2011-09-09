@@ -1,62 +1,96 @@
 module Heliotrope
   class Queue
     module ConnectionMethods
-      def qput(o)
-        t1 = Time.now
-        send Request.new(
-          type: Request::Type::PUT,
-          put: Request::Put.new(msgs: [o])
-        )
-        r = recv Response
-        puts (Time.now - t1)
-        r
+      def close *a
+        @queue = nil
+      end
+
+      def qclear(chunk_size = 100)
+        loop do
+          qpoll or return self
+        end
+      end
+
+      def qoffer(data, timeout = 0)
+        with_retry do
+          send! Request.new(
+            type: Request::Type::OFFER,
+            offer: Request::Offer.new(datas: data, timeout: timeout)
+          )
+          recv! Response
+          data
+        end
+      end
+      
+      def qpoll(timeout = nil)
+        with_retry do
+          send! Request.new(
+            type: Request::Type::POLL,
+            take: Request::Poll.new(num: 1, timeout: timeout)
+          )
+          if msgs = recv!(Response).msgs
+            msgs.first.data
+          end
+        end
+      end
+
+      def qput(data)
+        with_retry do
+          send! Request.new(
+            type: Request::Type::PUT,
+            put: Request::Put.new(datas: data)
+          )
+          recv! Response
+          data
+        end
       end
 
       # Selects a queue for this connection to operate with. Inside the block,
       # the queue will be selected. Use the yielded connection to perform qput,
       # qget, etc.
       def qselect(queue)
-        if queue != @queue
-          # Tell the server what queue we're using.
-          send Request.new(
-            type: Request::Type::SELECT,
-            select: Request::Select.new(queue: queue)
-          )
-          recv Response
-          @queue = queue
-        end
+        with_retry do
+          if queue != @queue
+            # Tell the server what queue we're using.
+            send! Request.new(
+              type: Request::Type::SELECT,
+              select: Request::Select.new(queue: queue)
+            )
+            recv! Response
+            @queue = queue
+          end
           
-        yield self if block_given?
+          yield self if block_given?
+        end
       end
-
-      def qtake(num = nil)
-        case num
-        when nil
-          send Request.new(
+      
+      def qtake
+        with_retry do
+          send! Request.new(
             type: Request::Type::TAKE,
             take: Request::Take.new(num: 1)
           )
-          recv(Response).msgs.map(&:data).first
-        else
-          send Request.new(
-            type: Request::Type::TAKE,
-            take: Request::Take.new(num: num)
-          )
-          recv(Response).msgs.map(&:data)
+          recv!(Response).msgs.map(&:data).first
         end
       end
 
       def qtransaction
-        begin
-          send! Request.new(type: Request::Type::BEGIN)
-          recv! Response
-          yield self
-          send! Request.new(type: Request::Type::COMMIT)
-          recv! Response
-        rescue Exception
-          send! Request.new(type: Request::Type::ROLLBACK)
-          recv! Response
-          raise
+        with_retry do
+          begin
+            send! Request.new(type: Request::Type::BEGIN)
+            recv! Response
+            yield self
+            send! Request.new(type: Request::Type::COMMIT)
+            recv! Response
+          rescue Exception => e
+            puts "#{to_s} transaction rescued #{e.inspect}, attempting rollback"
+            unless closed?
+              puts "#{to_s} Ending transaction"
+              send! Request.new(type: Request::Type::ROLLBACK)
+              recv! Response
+            end
+            raise
+          end
         end
       end
     end

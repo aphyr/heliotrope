@@ -23,8 +23,7 @@ module Heliotrope
 
     def initialize_copy(other)
       super other
-
-      @socket = nil
+      close
     end
 
     def ==(other)
@@ -40,24 +39,39 @@ module Heliotrope
     end
 
     def close
-      @socket.close
+      @socket.close rescue IOError
+      @socket = nil
+      super
+      true
     end
 
     def closed?
-      @socket.closed?
+      @socket.nil? or @socket.closed?
     end
 
+    def inspect
+      "(#{(Thread.current.object_id * 2).to_s(16)}) #{@host}:#{@port} #{@socket.inspect}"
+    end
+    
     def recv(*a)
       with_retry { recv! *a }
     end
 
     # Receive a protobufs message of class klass from socket s.
     def recv!(klass, s = @socket)
-      len = Util.decode_uint32 s
-      buffer = s.read(len) or raise EOFError
+      begin
+        len = Util.decode_uint32 s
+        buffer = s.read(len) or raise EOFError
+      rescue EOFError
+        close
+        raise
+      end
+
       resp = klass.decode(buffer)
       resp.validate!
-      resp
+      r = resp
+      puts "#{self} <- #{r.inspect}"
+      r
     end
 
     def send *a
@@ -67,30 +81,59 @@ module Heliotrope
     # Send a protobufs message on socket s
     def send!(message, s = @socket)
       encoded = message.encode.to_s
+      puts "#{self} -> #{message.inspect}"
       s << Util.encode_uint32(encoded.bytesize)
       s << encoded
       s.flush
     end
 
+    def to_s
+      inspect
+    end
+
+    # ensures that errors will be rescued from the given block--but only the
+    # outermost with_retry matters. In short, it asserts that the given block
+    # is causally linked; failures require restarting the block from the
+    # beginning.
     def with_retry
+      if @wrapped_by_retry
+        return yield
+      end
+
+      @wrapped_by_retry = true
+
       tries = 0
 
       begin
         tries += 1
         connect! unless @socket
         yield self
-      rescue Errno::EPIPE => e
+      rescue EOFError => e
+        puts "#{self} #{e.inspect}"
+        close
         raise if tries > 3
-        @socket = nil
+        retry
+      rescue Errno::EPIPE => e
+        p e
+        close
+        raise if tries > 3
         retry
       rescue Errno::ECONNREFUSED => e
+        p e
+        close
         raise if tries > 3
-        @socket = nil
         retry
       rescue Errno::ECONNRESET => e
+        p e
+        close
         raise if tries > 3
-        @socket = nil
         retry
+      rescue Exception => e
+        p e
+        close
+        raise
+      ensure
+        @wrapped_by_retry = false
       end
     end
   end
