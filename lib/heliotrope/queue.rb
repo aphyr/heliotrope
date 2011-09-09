@@ -21,13 +21,13 @@ module Heliotrope
 
     def put(*a)
       @client.qselect @queue do |c|
-        c.qput! *a
+        c.qput *a
       end
     end
 
     def take(*a)
       @client.qselect @queue do |c|
-        c.qtake! *a
+        c.qtake *a
       end
     end
   end

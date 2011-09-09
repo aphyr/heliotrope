@@ -15,7 +15,14 @@ describe Heliotrope::Queue do
   end
 
   should 'put' do
-    @q.put 'test'
-    @q.take.should == 'test'
+    x = rand.to_s
+    @q.put x
+    @q.take.should == x
+  end
+
+  should 'take' do
+    x = rand.to_s
+    @q.put x
+    @q.take.should == x
   end
 end

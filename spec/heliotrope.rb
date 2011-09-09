@@ -9,25 +9,25 @@ include Heliotrope
 
 describe Heliotrope::Client do
   should 'set up' do
-    Client.new.connections.should == 
-      [Connection.new(host: '127.0.0.1')]
+    Client.new.connection.should == 
+      Connection.new(host: '127.0.0.1')
     
-    Client.new(host: 'foo').connections.should == 
-      [Connection.new(host: 'foo')]
+    Client.new(host: 'foo').connection.should == 
+      Connection.new(host: 'foo')
     
-    Client.new(hosts: ['foo', 'bar']).connections.should == 
-      [
-        Connection.new(host: 'foo'),
-        Connection.new(host: 'bar')
-      ]
+    c = Client.new(hosts: ['foo', 'bar']).connection
+    (
+      c == Connection.new(host: 'foo') or
+      c == Connection.new(host: 'bar')
+    ).should.be.true
     
-    Client.new(connections: [
+    c = Client.new(connections: [
       {host: 'foo'},
       {host: 'bar'}
-    ]).connections.should == 
-      [
-        Connection.new(host: 'foo'),
-        Connection.new(host: 'bar')
-      ]
+    ]).connection
+    (
+      c == Connection.new(host: 'foo') or
+      c == Connection.new(host: 'bar')
+    ).should.be.true
   end
 end

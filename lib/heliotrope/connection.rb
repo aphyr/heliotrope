@@ -13,14 +13,18 @@ module Heliotrope
 
     attr_accessor :host, :port, :socket
 
-    puts "load connection"
-
+    # A particular socket connection. NOT threadsafe.
     def initialize(opts = {})
       super
 
       @host = opts[:host] || HOST
       @port = opts[:port] || PORT
-      @locket = Mutex.new
+    end
+
+    def initialize_copy(other)
+      super other
+
+      @socket = nil
     end
 
     def ==(other)
@@ -31,16 +35,20 @@ module Heliotrope
 
     def connect!
       @socket = TCPSocket.new @host, @port
+      @socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+      @socket
     end
 
     def close
-      @locket.synchronize do
-        @socket.close
-      end
+      @socket.close
     end
 
-    def connected?
-      not @socket.closed?
+    def closed?
+      @socket.closed?
+    end
+
+    def recv(*a)
+      with_retry { recv! *a }
     end
 
     # Receive a protobufs message of class klass from socket s.
@@ -52,34 +60,37 @@ module Heliotrope
       resp
     end
 
+    def send *a
+      with_retry { send! *a }
+    end
+
     # Send a protobufs message on socket s
     def send!(message, s = @socket)
       encoded = message.encode.to_s
       s << Util.encode_uint32(encoded.bytesize)
       s << encoded
+      s.flush
     end
 
-    def synchronize
+    def with_retry
       tries = 0
 
-      @locket.synchronize do
-        begin
-          tries += 1
-          connect! unless @socket
-          yield self
-        rescue Errno::EPIPE => e
-          raise if tries > 3
-          @socket = nil
-          retry
-        rescue Errno::ECONNREFUSED => e
-          raise if tries > 3
-          @socket = nil
-          retry
-        rescue Errno::ECONNRESET => e
-          raise if tries > 3
-          @socket = nil
-          retry
-        end
+      begin
+        tries += 1
+        connect! unless @socket
+        yield self
+      rescue Errno::EPIPE => e
+        raise if tries > 3
+        @socket = nil
+        retry
+      rescue Errno::ECONNREFUSED => e
+        raise if tries > 3
+        @socket = nil
+        retry
+      rescue Errno::ECONNRESET => e
+        raise if tries > 3
+        @socket = nil
+        retry
       end
     end
   end

@@ -21,7 +21,7 @@ class Heliotrope::Queue
 
     class Put
       include Beefcake::Message
-      repeated :msg, :bytes, 1
+      repeated :msgs, :bytes, 1
     end
 
     class Offer

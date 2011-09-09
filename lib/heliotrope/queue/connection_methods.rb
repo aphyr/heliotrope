@@ -1,86 +1,62 @@
 module Heliotrope
   class Queue
     module ConnectionMethods
-      def initialize(*a)
-        super *a
-        @qselect = Mutex.new
-        @qtransaction = Mutex.new
-      end
-        
-      def qput!(o)
-        synchronize do
-          send! Request.new(
-            type: Request::Type::PUT,
-            put: Request::Put.new(msg: [o])
-          )
-          recv! Response
-        end
+      def qput(o)
+        t1 = Time.now
+        send Request.new(
+          type: Request::Type::PUT,
+          put: Request::Put.new(msgs: [o])
+        )
+        r = recv Response
+        puts (Time.now - t1)
+        r
       end
 
       # Selects a queue for this connection to operate with. Inside the block,
       # the queue will be selected. Use the yielded connection to perform qput,
       # qget, etc.
       def qselect(queue)
-        # It's official. Stateful protocols suck.
-        @qselect.synchronize do
-          if queue != @queue
-            # Tell the server what queue we're using.
-            @queue = queue
-            synchronize do
-              send! Request.new(
-                  type: Request::Type::SELECT,
-                  select: Request::Select.new(queue: queue)
-                )
-              recv!(Response)
-            end
-          end
-
-          yield self if block_given?
+        if queue != @queue
+          # Tell the server what queue we're using.
+          send Request.new(
+            type: Request::Type::SELECT,
+            select: Request::Select.new(queue: queue)
+          )
+          recv Response
+          @queue = queue
         end
+          
+        yield self if block_given?
       end
 
-      def qtake!(num = nil)
+      def qtake(num = nil)
         case num
         when nil
-          r = Request::Take.new num: 1
-        else
-          r = Request::Take.new num: num
-        end
-
-        synchronize do
-          send! Request.new(
+          send Request.new(
             type: Request::Type::TAKE,
-            put: r
+            take: Request::Take.new(num: 1)
           )
-          msgs = recv!(Response).msgs.map(&:data)
-
-          if num
-            msgs
-          else
-            msgs.first
-          end
+          recv(Response).msgs.map(&:data).first
+        else
+          send Request.new(
+            type: Request::Type::TAKE,
+            take: Request::Take.new(num: num)
+          )
+          recv(Response).msgs.map(&:data)
         end
       end
 
       def qtransaction
-        @qtransaction.synchronize do
-          begin
-            synchronize do
-              send! Request.new(type: Request::Type::BEGIN)
-              recv! Response
-            end
-            yield self
-            synchronize do
-              send! Request.new(type: Request::Type::COMMIT)
-              recv! Response
-            end
-          rescue Exception
-            synchronize do
-              send! Request.new(type: Request::Type::ROLLBACK), Response
-              recv! Response
-            end
-            raise
-          end
+        begin
+          send! Request.new(type: Request::Type::BEGIN)
+          recv! Response
+          yield self
+          send! Request.new(type: Request::Type::COMMIT)
+          recv! Response
+        rescue Exception
+          send! Request.new(type: Request::Type::ROLLBACK)
+          recv! Response
+          raise
         end
       end
     end

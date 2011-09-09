@@ -17,35 +17,43 @@ module Heliotrope
     #   ...
     # ]
     def initialize(opts = {})
-      @connections = []
+      @connections = {}
+      @possibilities = []
 
       if opts[:host]
-        add_connection host: opts[:host]
+        @possibilities |= [Connection.new(host: opts[:host])]
       end
 
       if opts[:hosts]
         opts[:hosts].each do |h|
-          add_connection host: h
+          @possibilities |= [Connection.new(host: h)]
         end
       end
 
       if opts[:connections]
         opts[:connections].each do |c|
-          add_connection c
+          @possibilities |= [Connection.new(c)]
         end
       end
 
-      add_connection if connections.empty?
-    end
-
-    def add_connection(c = {})
-      connection = Connection.new(c) unless c.kind_of? Connection
-      @connections |= [connection]
+      if @possibilities.empty?
+        @possibilities |= [Connection.new]
+      end
     end
 
     # Return a connection for a request
     def connection
-      @connections[rand @connections.size] or raise NoConnections
+      @connections[Thread.current] or begin
+        c = @possibilities[rand @possibilities.size]
+        @connections[Thread.current] = c.dup
+      end
+    end
+
+    # Remove connections owned by deceased threads
+    def cleanup_connections
+      @connections.keep_if do |thread, conns|
+        thread.alive?
+      end
     end
 
     def method_missing(method, *a, &block)

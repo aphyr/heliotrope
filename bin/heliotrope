@@ -1,14 +1,17 @@
 #!/usr/bin/env ruby
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'heliotrope'))
+require 'heliotrope/all'
 require 'trollop'
+require 'irb'
+require 'irb/completion'
 
 o = Trollop.options do
   opt :host, 'Address to listen on', :default => '127.0.0.1'
   opt :port, 'Port to listen on', :default => 55956
 end
 
-s = Heliotrope.new(
+H = Heliotrope::Client.new(
   host: o[:host],
   port: o[:port]
 )
