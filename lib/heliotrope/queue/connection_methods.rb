@@ -40,7 +40,9 @@ module Heliotrope
             type: Request::Type::PUT,
             put: Request::Put.new(datas: data)
           )
+          t1 = Time.now
           recv! Response
+          puts Time.now - t1
           data
         end
       end
@@ -83,9 +85,7 @@ module Heliotrope
             send! Request.new(type: Request::Type::COMMIT)
             recv! Response
           rescue Exception => e
-            puts "#{to_s} transaction rescued #{e.inspect}, attempting rollback"
             unless closed?
-              puts "#{to_s} Ending transaction"
               send! Request.new(type: Request::Type::ROLLBACK)
               recv! Response
             end

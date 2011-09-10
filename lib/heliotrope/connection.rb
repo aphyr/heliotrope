@@ -70,7 +70,7 @@ module Heliotrope
       resp = klass.decode(buffer)
       resp.validate!
       r = resp
-      puts "#{self} <- #{r.inspect}"
+      #puts "#{self} <- #{r.inspect}"
       r
     end
 
@@ -81,7 +81,7 @@ module Heliotrope
     # Send a protobufs message on socket s
     def send!(message, s = @socket)
       encoded = message.encode.to_s
-      puts "#{self} -> #{message.inspect}"
+      #puts "#{self} -> #{message.inspect}"
       s << Util.encode_uint32(encoded.bytesize)
       s << encoded
       s.flush
@@ -109,27 +109,22 @@ module Heliotrope
         connect! unless @socket
         yield self
       rescue EOFError => e
-        puts "#{self} #{e.inspect}"
         close
         raise if tries > 3
         retry
       rescue Errno::EPIPE => e
-        p e
         close
         raise if tries > 3
         retry
       rescue Errno::ECONNREFUSED => e
-        p e
         close
         raise if tries > 3
         retry
       rescue Errno::ECONNRESET => e
-        p e
         close
         raise if tries > 3
         retry
       rescue Exception => e
-        p e
         close
         raise
       ensure
