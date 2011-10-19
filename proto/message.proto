@@ -1,5 +1,5 @@
 message Message {
-  optional int32 channel = 1;
+  optional uint32 channel = 1;
   optional Error error = 2;
 
   message Error {
@@ -28,13 +28,13 @@ message Message {
     optional string queue = 1;
     repeated bytes data = 2;
   }
-  message QueuePutResponse { };
+  message QueuePutResponse { }
   message QueueOfferRequest {
     optional string queue = 1;
     repeated bytes data = 2;
     optional uint32 timeout = 3;
   }
-  message QueueOfferResponse { };
+  message QueueOfferResponse { }
   message QueueTakeRequest {
     optional string queue = 1;
     optional uint32 max = 2;
@@ -58,12 +58,12 @@ message Message {
     optional string queue = 1;
   }
   message QueueSizeResponse {
-    optional uint64 size;
+    optional uint64 size = 1;
   }
   message QueueMaxRequest {
     optional string queue = 1;
   }
   optional QueueMaxResponse {
-    optional uint64 size;
+    optional uint64 size = 1;
   }
 }
