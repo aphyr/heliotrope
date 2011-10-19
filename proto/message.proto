@@ -1,0 +1,69 @@
+message Message {
+  optional int32 channel = 1;
+  optional Error error = 2;
+
+  message Error {
+    optional int32 code = 1;
+    optional string short = 2;
+    optional string long = 3;
+  }
+
+  // Queues
+  optional QueuePutRequest queue_put_request = 100;
+  optional QueuePutResponse queue_put_response = 101;
+  optional QueueOfferRequest queue_offer_request = 102;
+  optional QueueOfferResponse queue_offer_response = 103;
+  optional QueueTakeRequest queue_take_request = 104;
+  optional QueueTakeResponse queue_take_response = 105;
+  optional QueuePollRequest queue_poll_request = 106;
+  optional QueuePollResponse queue_poll_response = 107;
+  optional QueueListRequest queue_list_request = 108;
+  optional QueueListResponse queue_list_response = 109;
+  optional QueueSizeRequest queue_size_request = 110;
+  optional QueueSizeResponse queue_size_response = 111;
+  optional QueueMaxRequest queue_limit_request = 112;
+  optional QueueMaxResponse queue_limit_response = 113;
+
+  message QueuePutRequest {
+    optional string queue = 1;
+    repeated bytes data = 2;
+  }
+  message QueuePutResponse { };
+  message QueueOfferRequest {
+    optional string queue = 1;
+    repeated bytes data = 2;
+    optional uint32 timeout = 3;
+  }
+  message QueueOfferResponse { };
+  message QueueTakeRequest {
+    optional string queue = 1;
+    optional uint32 max = 2;
+  }
+  message QueueTakeResponse {
+    repeated bytes data = 1;
+  }
+  message QueuePollRequest {
+    optional string queue = 1;
+    optional uint32 max = 2;
+    optional uint32 timeout = 3;
+  }
+  message QueuePollResponse {
+    repeated bytes data = 1;
+  }
+  message QueueListRequest { }
+  message QueueListResponse {
+    repeated string queues = 1;
+  }
+  message QueueSizeRequest {
+    optional string queue = 1;
+  }
+  message QueueSizeResponse {
+    optional uint64 size;
+  }
+  message QueueMaxRequest {
+    optional string queue = 1;
+  }
+  optional QueueMaxResponse {
+    optional uint64 size;
+  }
+}
